@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ARTA Survey QR Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .qr-container { text-align: center; margin: 20px 0; }
+        input, button { padding: 10px; margin: 5px; font-size: 16px; }
+        input { width: 300px; }
+        button { background: #007BFF; color: white; border: none; cursor: pointer; }
+        .url-list { margin: 20px 0; }
+        .url-item { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>ARTA Survey QR Code Generator</h1>
+    
+    <div>
+        <input type="text" id="surveyUrl" placeholder="Enter survey URL (e.g., https://yourapp.com/survey/123)" />
+        <button onclick="generateQR()">Generate QR Code</button>
+    </div>
+    
+    <div class="qr-container">
+        <canvas id="qrcode"></canvas>
+    </div>
+    
+    <div class="url-list">
+        <h3>Sample Survey URLs:</h3>
+        <div class="url-item">
+            <strong>Default Survey:</strong><br>
+            <code>https://yourapp.com/survey/default</code>
+            <button onclick="generateQRForUrl('https://yourapp.com/survey/default')">Generate QR</button>
+        </div>
+        <div class="url-item">
+            <strong>Custom Survey:</strong><br>
+            <code>https://yourapp.com/survey/custom123</code>
+            <button onclick="generateQRForUrl('https://yourapp.com/survey/custom123')">Generate QR</button>
+        </div>
+    </div>
+    
+    <div style="margin-top: 30px; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <h3>How to use:</h3>
+        <ol>
+            <li>Generate a QR code using the form above</li>
+            <li>Open the ARTA User app on your phone</li>
+            <li>Tap "Scan QR Code" button</li>
+            <li>Point your camera at the QR code</li>
+            <li>The survey will open automatically</li>
+        </ol>
+        <p><strong>Alternative:</strong> You can also tap "Enter Survey URL" in the app and paste the URL directly.</p>
+    </div>
+
+    <script>
+        function generateQR() {
+            const url = document.getElementById('surveyUrl').value;
+            if (url) {
+                generateQRForUrl(url);
+            } else {
+                alert('Please enter a survey URL');
+            }
+        }
+        
+        function generateQRForUrl(url) {
+            const canvas = document.getElementById('qrcode');
+            QRCode.toCanvas(canvas, url, { width: 300 }, function (error) {
+                if (error) console.error(error);
+                console.log('QR code generated for:', url);
+            });
+            document.getElementById('surveyUrl').value = url;
+        }
+        
+        // Generate default QR on page load
+        generateQRForUrl('https://yourapp.com/survey/default');
+    </script>
+</body>
+</html>
