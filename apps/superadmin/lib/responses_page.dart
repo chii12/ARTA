@@ -21,27 +21,22 @@ class _ResponsesPageState extends State<ResponsesPage> {
   }
 
   Future<void> _loadResponses() async {
+    setState(() => _loading = true);
     try {
-      // Get current user's department
-      final user = Supabase.instance.client.auth.currentUser;
-      final userData = await Supabase.instance.client
-          .from('users')
-          .select('department_id')
-          .eq('user_id', user!.id)
-          .single();
-      
-      // Get responses filtered by department
+      // Get all responses from all departments (super admin view)
       final response = await Supabase.instance.client
           .from('responses')
-          .select('*, respondents(*), services!inner(service_name, department_id)')
-          .eq('services.department_id', userData['department_id'])
+          .select('*, respondents(*), services(service_name, department_id, departments(department_name))')
           .order('date_submitted', ascending: _sortBy == 'Oldest');
+      
+      print('Responses: Found ${response.length} responses across all departments');
       
       setState(() {
         _responses = List<Map<String, dynamic>>.from(response);
         _loading = false;
       });
     } catch (e) {
+      print('Responses error: $e');
       setState(() => _loading = false);
     }
   }
@@ -123,8 +118,9 @@ class _ResponsesPageState extends State<ResponsesPage> {
                                     Expanded(flex: 1, child: Text('Survey ID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                                     Expanded(flex: 2, child: Text('Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                                     Expanded(flex: 1, child: Text('Client Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                    Expanded(flex: 2, child: Text('Region of Residence', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                    Expanded(flex: 2, child: Text('Service Applied', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                    Expanded(flex: 2, child: Text('Region', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                    Expanded(flex: 2, child: Text('Service', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                    Expanded(flex: 2, child: Text('Department', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                                     Expanded(flex: 1, child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                                   ],
                                 ),
@@ -152,6 +148,7 @@ class _ResponsesPageState extends State<ResponsesPage> {
                                             Expanded(flex: 1, child: Text(respondent?['client_type'] ?? '-', style: const TextStyle(fontSize: 13))),
                                             Expanded(flex: 2, child: Text(respondent?['region_of_residence'] ?? '-', style: const TextStyle(fontSize: 13))),
                                             Expanded(flex: 2, child: Text(service?['service_name'] ?? '-', style: const TextStyle(fontSize: 13))),
+                                            Expanded(flex: 2, child: Text(service?['departments']?['department_name'] ?? '-', style: const TextStyle(fontSize: 13))),
                                             Expanded(flex: 1, child: Text('${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}-${date.year}', style: const TextStyle(fontSize: 13))),
                                           ],
                                         ),

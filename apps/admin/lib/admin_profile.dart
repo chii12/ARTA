@@ -61,7 +61,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         if (user.email != null) {
           response = await Supabase.instance.client
               .from('users')
-              .select('user_id, full_name, email, role, department_id, departments(department_name)')
+              .select('user_id, full_name, email, role, department_id, phone_number, departments(department_name)')
               .eq('email', user.email!)
               .maybeSingle();
           print('Database response by email: $response');
@@ -71,7 +71,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         if (response == null) {
           response = await Supabase.instance.client
               .from('users')
-              .select('user_id, full_name, email, role, department_id, departments(department_name)')
+              .select('user_id, full_name, email, role, department_id, phone_number, departments(department_name)')
               .eq('user_id', user.id)
               .maybeSingle();
           print('Database response by user_id: $response');
@@ -82,6 +82,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
             if (response != null) {
               userData['name'] = response['full_name'] ?? 'Admin User';
               userData['email'] = response['email'] ?? user.email ?? '';
+              userData['phone'] = response['phone_number'] ?? '+63 912 345 6789';
               userData['department'] = response['departments']?['department_name'] ?? 'No Department';
             } else {
               userData['name'] = 'Admin User';
@@ -90,6 +91,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
             }
             _nameCtrl.text = userData['name']!;
             _emailCtrl.text = userData['email']!;
+            _phoneCtrl.text = userData['phone']!;
             _deptCtrl.text = userData['department']!;
           });
         }
@@ -238,7 +240,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                               ),
                               const SizedBox(width: 8),
                               ElevatedButton.icon(
-                                onPressed: () {
+                                onPressed: () async {
                                   // Validate fields
                                   final name = _nameCtrl.text.trim();
                                   final phone = _phoneCtrl.text.trim();
@@ -259,7 +261,36 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                                     return;
                                   }
 
-                                  // Save profile data
+                                  // Save to database
+                                  try {
+                                    final user = Supabase.instance.client.auth.currentUser;
+                                    if (user != null && user.email != null) {
+                                      print('Updating user with email: ${user.email}');
+                                      final result = await Supabase.instance.client
+                                          .from('users')
+                                          .update({
+                                            'full_name': name,
+                                            'phone_number': phone,
+                                          })
+                                          .eq('email', user.email!)
+                                          .select();
+                                      print('Update result: $result');
+                                      
+                                      if (result.isEmpty) {
+                                        throw Exception('No user record found to update');
+                                      }
+                                    } else {
+                                      throw Exception('No authenticated user found');
+                                    }
+                                  } catch (e) {
+                                    print('Database update error: $e');
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error saving profile: $e')),
+                                    );
+                                    return;
+                                  }
+
+                                  // Save profile data locally
                                   setState(() {
                                     userData['name'] = name;
                                     userData['phone'] = phone;

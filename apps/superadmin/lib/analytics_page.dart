@@ -24,22 +24,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   Future<void> _loadAnalytics() async {
     setState(() => _loading = true);
     try {
-      // Get current user's department
-      final user = Supabase.instance.client.auth.currentUser;
-      final userData = await Supabase.instance.client
-          .from('users')
-          .select('department_id')
-          .eq('user_id', user!.id)
-          .single();
-      
-      // Get responses filtered by department
+      // Get all responses from all departments (super admin view)
       final responses = await Supabase.instance.client
           .from('responses')
-          .select('*, respondents(*), services!inner(service_name, department_id), response_answers(*, questions(*))')
-          .eq('services.department_id', userData['department_id'])
+          .select('*, respondents(*), services(service_name, department_id, departments(department_name)), response_answers(*, questions(*))')
           .order('date_submitted', ascending: false);
       
-      print('Analytics: Found ${responses.length} responses');
+      print('Analytics: Found ${responses.length} responses across all departments');
       
       // Calculate analytics
       final analytics = _calculateAnalytics(responses);
@@ -107,6 +98,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       servicesDisplay[serviceDisplayNames[key]!] = value;
     });
     
+    // Department distribution
+    final departments = <String, int>{};
+    for (var r in filteredResponses) {
+      final deptName = r['services']?['departments']?['department_name'] ?? 'Unknown Department';
+      departments[deptName] = (departments[deptName] ?? 0) + 1;
+    }
+    
     // CC and Satisfaction scores
     final ccScores = <String, Map<int, int>>{};
     final satisfactionScores = <String, List<int>>{};
@@ -118,12 +116,41 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       for (var answer in answers) {
         final questionCode = answer['questions']?['question_code'];
         final ratingValue = answer['rating_value'];
+        final textAnswer = answer['text_answer'];
         
         if (questionCode != null) {
           if (questionCode.startsWith('CC')) {
-            if (ratingValue != null && ratingValue > 0) {
+            // CC questions use text answers, convert to option numbers
+            if (textAnswer != null && textAnswer.isNotEmpty) {
+              int optionNumber = 1; // Default to option 1
+              
+              // Map text answers to option numbers based on common CC responses
+              if (textAnswer.contains('know') && textAnswer.contains('saw')) {
+                optionNumber = 1;
+              } else if (textAnswer.contains('know') && textAnswer.contains('not')) {
+                optionNumber = 2;
+              } else if (textAnswer.contains('learned')) {
+                optionNumber = 3;
+              } else if (textAnswer.contains('not know') || textAnswer.contains('do not')) {
+                optionNumber = 4;
+              } else if (textAnswer.contains('Easy')) {
+                optionNumber = 1;
+              } else if (textAnswer.contains('Somewhat')) {
+                optionNumber = 2;
+              } else if (textAnswer.contains('Difficult')) {
+                optionNumber = 3;
+              } else if (textAnswer.contains('Not visible')) {
+                optionNumber = 4;
+              } else if (textAnswer.contains('very much')) {
+                optionNumber = 1;
+              } else if (textAnswer.contains('helped')) {
+                optionNumber = 2;
+              } else if (textAnswer.contains('not help')) {
+                optionNumber = 3;
+              }
+              
               ccScores[questionCode] = ccScores[questionCode] ?? {};
-              ccScores[questionCode]![ratingValue] = (ccScores[questionCode]![ratingValue] ?? 0) + 1;
+              ccScores[questionCode]![optionNumber] = (ccScores[questionCode]![optionNumber] ?? 0) + 1;
             }
           } else if (questionCode.startsWith('SQD')) {
             if (ratingValue != null && ratingValue > 0) {
@@ -138,6 +165,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     
     print('Total satisfaction scores: ${satisfactionScores.length}');
     print('Satisfaction scores: $satisfactionScores');
+    print('CC scores found: ${ccScores.length}');
+    print('CC scores: $ccScores');
     
     if (satisfactionCount > 0) {
       avgSatisfaction = avgSatisfaction / satisfactionCount;
@@ -159,6 +188,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       'clientTypes': clientTypes,
       'regions': regions,
       'services': servicesDisplay,
+      'departments': departments,
       'ccScores': ccScores,
       'satisfactionScores': satisfactionScores,
       'dailyTrend': dailyTrend,
@@ -240,6 +270,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       Expanded(child: _buildChartCard('Service Usage', _buildServiceChart())),
                     ],
                   ),
+                  const SizedBox(height: 24),
+                  
+                  // Department Distribution
+                  _buildChartCard('Department Distribution', _buildDepartmentChart()),
                   const SizedBox(height: 24),
                   
                   // CC Analysis
@@ -395,6 +429,35 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ),
           title: Text(e.key, style: const TextStyle(fontSize: 14)),
           trailing: Text('${e.value} uses', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildDepartmentChart() {
+    final departments = _analytics['departments'] as Map<String, int>? ?? {};
+    if (departments.isEmpty) return const Center(child: Text('No data available'));
+    
+    final total = departments.values.fold(0, (a, b) => a + b);
+    return Column(
+      children: departments.entries.map((e) {
+        final percentage = (e.value / total * 100).round();
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              SizedBox(width: 120, child: Text(e.key, style: const TextStyle(fontSize: 12))),
+              Expanded(
+                child: LinearProgressIndicator(
+                  value: e.value / total,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation(Colors.indigo[400]),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text('$percentage% (${e.value})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ],
+          ),
         );
       }).toList(),
     );

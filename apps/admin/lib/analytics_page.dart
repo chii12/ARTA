@@ -121,12 +121,41 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       for (var answer in answers) {
         final questionCode = answer['questions']?['question_code'];
         final ratingValue = answer['rating_value'];
+        final textAnswer = answer['text_answer'];
         
         if (questionCode != null) {
           if (questionCode.startsWith('CC')) {
-            if (ratingValue != null && ratingValue > 0) {
+            // CC questions use text answers, convert to option numbers
+            if (textAnswer != null && textAnswer.isNotEmpty) {
+              int optionNumber = 1; // Default to option 1
+              
+              // Map text answers to option numbers based on common CC responses
+              if (textAnswer.contains('know') && textAnswer.contains('saw')) {
+                optionNumber = 1;
+              } else if (textAnswer.contains('know') && textAnswer.contains('not')) {
+                optionNumber = 2;
+              } else if (textAnswer.contains('learned')) {
+                optionNumber = 3;
+              } else if (textAnswer.contains('not know') || textAnswer.contains('do not')) {
+                optionNumber = 4;
+              } else if (textAnswer.contains('Easy')) {
+                optionNumber = 1;
+              } else if (textAnswer.contains('Somewhat')) {
+                optionNumber = 2;
+              } else if (textAnswer.contains('Difficult')) {
+                optionNumber = 3;
+              } else if (textAnswer.contains('Not visible')) {
+                optionNumber = 4;
+              } else if (textAnswer.contains('very much')) {
+                optionNumber = 1;
+              } else if (textAnswer.contains('helped')) {
+                optionNumber = 2;
+              } else if (textAnswer.contains('not help')) {
+                optionNumber = 3;
+              }
+              
               ccScores[questionCode] = ccScores[questionCode] ?? {};
-              ccScores[questionCode]![ratingValue] = (ccScores[questionCode]![ratingValue] ?? 0) + 1;
+              ccScores[questionCode]![optionNumber] = (ccScores[questionCode]![optionNumber] ?? 0) + 1;
             }
           } else if (questionCode.startsWith('SQD')) {
             if (ratingValue != null && ratingValue > 0) {
@@ -141,6 +170,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     
     print('Total satisfaction scores: ${satisfactionScores.length}');
     print('Satisfaction scores: $satisfactionScores');
+    print('CC scores found: ${ccScores.length}');
+    print('CC scores: $ccScores');
     
     if (satisfactionCount > 0) {
       avgSatisfaction = avgSatisfaction / satisfactionCount;

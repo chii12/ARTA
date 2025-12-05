@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'services/survey_service.dart';
 
 class PublicSurveyPage extends StatefulWidget {
   final String surveyId;
@@ -36,36 +37,55 @@ class _PublicSurveyPageState extends State<PublicSurveyPage> {
   Future<void> _loadSurvey() async {
     try {
       print('Loading survey with ID: ${widget.surveyId}');
-      final surveyIdInt = int.tryParse(widget.surveyId);
-      if (surveyIdInt == null) {
-        print('Invalid survey ID format: ${widget.surveyId}');
-        _setDefaultQuestions();
-        return;
-      }
       
-      final response = await Supabase.instance.client
-          .from('survey_templates')
-          .select()
-          .eq('id', surveyIdInt)
+      // First try to load from surveys table (for QR code surveys)
+      final surveyResponse = await Supabase.instance.client
+          .from('surveys')
+          .select('survey_id, title, department_id')
+          .eq('survey_id', widget.surveyId)
           .maybeSingle();
       
-      if (response == null) {
-        print('Survey not found with ID: $surveyIdInt, using default questions');
+      if (surveyResponse != null) {
+        print('Found survey in surveys table: ${surveyResponse['title']}, dept: ${surveyResponse['department_id']}');
         _setDefaultQuestions();
+        setState(() {
+          _survey = {
+            'id': surveyResponse['survey_id'],
+            'title': surveyResponse['title'],
+            'department_id': surveyResponse['department_id'],
+          };
+          _loading = false;
+        });
         return;
       }
       
-      final template = response['template'] as Map<String, dynamic>?;
-      if (template != null && template['questions'] != null) {
-        _questions = List<Map<String, dynamic>>.from(template['questions']);
-      } else {
-        _setDefaultQuestions();
+      // Fallback to survey_templates for template-based surveys
+      final surveyIdInt = int.tryParse(widget.surveyId);
+      if (surveyIdInt != null) {
+        final response = await Supabase.instance.client
+            .from('survey_templates')
+            .select()
+            .eq('id', surveyIdInt)
+            .maybeSingle();
+        
+        if (response != null) {
+          final template = response['template'] as Map<String, dynamic>?;
+          if (template != null && template['questions'] != null) {
+            _questions = List<Map<String, dynamic>>.from(template['questions']);
+          } else {
+            _setDefaultQuestions();
+          }
+          
+          setState(() {
+            _survey = response;
+            _loading = false;
+          });
+          return;
+        }
       }
       
-      setState(() {
-        _survey = response;
-        _loading = false;
-      });
+      print('Survey not found, using default questions');
+      _setDefaultQuestions();
     } catch (e) {
       print('Error loading survey: $e');
       _setDefaultQuestions();
@@ -1109,109 +1129,80 @@ class _PublicSurveyPageState extends State<PublicSurveyPage> {
   }
 
   void _submitSurvey() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
+    );
+    
     try {
-      final respondentId = const Uuid().v4();
-      final responseId = const Uuid().v4();
-      final surveyId = const Uuid().v4();
-      
-      // Insert respondent
-      await Supabase.instance.client.from('respondents').insert({
-        'respondent_id': respondentId,
-        'client_type': _answers['client_type'],
+      // Convert answers to the format expected by SurveyService
+      final formData = {
         'name': _nameController.text,
-        'age': int.tryParse(_ageController.text),
-        'sex': _answers['sex'],
-        'region_of_residence': _regionController.text,
-      });
+        'clientType': _answers['client_type'] ?? '',
+        'sex': _answers['sex'] ?? '',
+        'date': DateTime.now().toIso8601String().split('T')[0],
+        'age': _ageController.text,
+        'region': _regionController.text,
+        'service': _serviceController.text,
+      };
       
-      // Create survey
-      await Supabase.instance.client.from('surveys').insert({
-        'survey_id': surveyId,
-        'title': _survey?['title'] ?? 'ARTA Survey',
-        'user_created_by': const Uuid().v4(), // Mock user ID
-      });
+      final surveyResponse = SurveyService.createSurveyResponse(
+        name: formData['name'] ?? '',
+        clientType: formData['clientType'] ?? '',
+        sex: formData['sex'] ?? '',
+        date: formData['date'] ?? '',
+        age: formData['age'] ?? '',
+        region: formData['region'] ?? '',
+        service: formData['service'] ?? '',
+        cc1: _answers['CC1']?.toString(),
+        cc2: _answers['CC2']?.toString(),
+        cc3: _answers['CC3']?.toString(),
+        sqd0: _answers['SQD0']?.toString(),
+        sqd1: _answers['SQD1']?.toString(),
+        sqd2: _answers['SQD2']?.toString(),
+        sqd3: _answers['SQD3']?.toString(),
+        sqd4: _answers['SQD4']?.toString(),
+        sqd5: _answers['SQD5']?.toString(),
+        sqd6: _answers['SQD6']?.toString(),
+        sqd7: _answers['SQD7']?.toString(),
+        sqd8: _answers['SQD8']?.toString(),
+        suggestions: _suggestionsController.text,
+        email: _emailController.text,
+        departmentId: _survey?['department_id'],
+      );
       
-      // Create service if provided
-      String? serviceId;
-      if (_serviceController.text.isNotEmpty) {
-        serviceId = const Uuid().v4();
-        await Supabase.instance.client.from('services').insert({
-          'service_id': serviceId,
-          'service_name': _serviceController.text,
-          'department_id': const Uuid().v4(), // Mock department ID
-        });
-      }
+      final success = await SurveyService.submitSurveyToAPI(surveyResponse);
       
-      // Insert response
-      await Supabase.instance.client.from('responses').insert({
-        'response_id': responseId,
-        'survey_id': surveyId,
-        'respondent_id': respondentId,
-        'service_availed_id': serviceId,
-      });
-      
-      // Insert questions and answers
-      for (var question in _questions) {
-        final questionCode = question['code'];
-        if (_answers.containsKey(questionCode)) {
-          final questionId = const Uuid().v4();
-          
-          // Insert question
-          await Supabase.instance.client.from('questions').insert({
-            'question_id': questionId,
-            'survey_id': surveyId,
-            'question_code': questionCode,
-            'question_text': question['text'],
-            'question_type': question['type'],
-          });
-          
-          // Insert answer
-          final answer = _answers[questionCode];
-          int? ratingValue;
-          String? textAnswer;
-          
-          if (answer is int) {
-            ratingValue = answer;
-          } else if (answer is String) {
-            // Convert satisfaction text to numeric rating
-            switch (answer) {
-              case 'Very Satisfied': ratingValue = 5; break;
-              case 'Satisfied': ratingValue = 4; break;
-              case 'Neither Satisfied nor Dissatisfied': ratingValue = 3; break;
-              case 'Dissatisfied': ratingValue = 2; break;
-              case 'Very Dissatisfied': ratingValue = 1; break;
-              default: textAnswer = answer;
-            }
-          }
-          
-          await Supabase.instance.client.from('response_answers').insert({
-            'answer_id': const Uuid().v4(),
-            'response_id': responseId,
-            'question_id': questionId,
-            'rating_value': ratingValue,
-            'text_answer': textAnswer,
-          });
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Survey submitted successfully!')),
+          );
+          Navigator.pop(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to submit survey. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       }
-      
-      // Insert suggestions if provided
-      if (_suggestionsController.text.isNotEmpty || _emailController.text.isNotEmpty) {
-        await Supabase.instance.client.from('suggestions').insert({
-          'suggestion_id': const Uuid().v4(),
-          'response_id': responseId,
-          'comment_text': _suggestionsController.text,
-          'email_optional': _emailController.text,
-        });
-      }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Survey submitted successfully!')),
-      );
-      Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }
