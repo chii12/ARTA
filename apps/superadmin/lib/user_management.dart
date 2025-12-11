@@ -296,20 +296,24 @@ class _UserManagementPageState extends State<UserManagementPage> {
               }
               
               try {
-                // Note: Password updates should use Supabase Auth API, not direct table update
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Password reset not implemented - use Supabase Auth')),
+                // Update password in custom users table
+                await Supabase.instance.client.from('users').update({
+                  'password': passwordController.text,
+                }).eq('user_id', user['id']);
+                
+                // Send reset email with redirect to reset page
+                await Supabase.instance.client.auth.resetPasswordForEmail(
+                  user['email'],
+                  redirectTo: 'https://your-app.com/reset-password',
                 );
-                Navigator.pop(context);
-                return;
                 
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Password reset for ${user['name']}')),
+                  SnackBar(content: Text('Password updated in database and reset email sent to ${user['email']}')),
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error resetting password: $e')),
+                  SnackBar(content: Text('Error: $e')),
                 );
               }
             },

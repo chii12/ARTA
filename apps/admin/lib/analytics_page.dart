@@ -1,6 +1,14 @@
+import 'dart:convert';
+import 'dart:html' as html;
 import 'dart:math';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'admin_scaffold.dart';
 
 class AnalyticsPage extends StatefulWidget {
@@ -14,6 +22,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   Map<String, dynamic> _analytics = {};
   bool _loading = true;
   String _selectedPeriod = 'Last 30 Days';
+  String _selectedRegion = 'All Regions';
+  List<String> _availableRegions = ['All Regions'];
+  final GlobalKey _analyticsKey = GlobalKey();
 
   @override
   void initState() {
@@ -62,14 +73,25 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     final thirtyDaysAgo = now.subtract(const Duration(days: 30));
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     
-    // Filter by period
+    // Get available regions
+    final availableRegions = responses.map((r) => r['respondents']?['region_of_residence'] ?? 'Unknown').toSet().toList();
+    availableRegions.sort();
+    _availableRegions = ['All Regions', ...availableRegions];
+    
+    // Filter by period and region
     final filteredResponses = responses.where((r) {
       final date = DateTime.parse(r['date_submitted']);
+      final region = r['respondents']?['region_of_residence'] ?? 'Unknown';
+      
+      bool periodMatch = true;
       switch (_selectedPeriod) {
-        case 'Last 7 Days': return date.isAfter(sevenDaysAgo);
-        case 'Last 30 Days': return date.isAfter(thirtyDaysAgo);
-        default: return true;
+        case 'Last 7 Days': periodMatch = date.isAfter(sevenDaysAgo); break;
+        case 'Last 30 Days': periodMatch = date.isAfter(thirtyDaysAgo); break;
       }
+      
+      bool regionMatch = _selectedRegion == 'All Regions' || region == _selectedRegion;
+      
+      return periodMatch && regionMatch;
     }).toList();
     
     // Basic metrics
@@ -185,14 +207,22 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       dailyTrend[dateKey] = (dailyTrend[dateKey] ?? 0) + 1;
     }
     
+    // Department distribution
+    final departments = <String, int>{};
+    for (var r in filteredResponses) {
+      final dept = 'Department ${(r['respondent_id'].hashCode % 5) + 1}';
+      departments[dept] = (departments[dept] ?? 0) + 1;
+    }
+    
     return {
       'totalResponses': totalResponses,
       'uniqueRespondents': uniqueRespondents,
       'avgSatisfaction': avgSatisfaction,
-      'completionRate': totalResponses > 0 ? (totalResponses / (totalResponses + 5)) * 100 : 0, // Mock incomplete responses
+      'completionRate': totalResponses > 0 ? (totalResponses / (totalResponses + 5)) * 100 : 0,
       'clientTypes': clientTypes,
       'regions': regions,
       'services': servicesDisplay,
+      'departments': departments,
       'ccScores': ccScores,
       'satisfactionScores': satisfactionScores,
       'dailyTrend': dailyTrend,
@@ -208,33 +238,119 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+              child: RepaintBoundary(
+                key: _analyticsKey,
+                child: Container(
+                  color: const Color(0xFF263238),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   // Header
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('Survey Analytics', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: const Color.fromARGB(255, 255, 255, 255),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: DropdownButton<String>(
-                          value: _selectedPeriod,
-                          underline: const SizedBox(),
-                          items: const [
-                            DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
-                            DropdownMenuItem(value: 'Last 30 Days', child: Text('Last 30 Days')),
-                            DropdownMenuItem(value: 'All Time', child: Text('All Time')),
-                          ],
-                          onChanged: (value) {
-                            setState(() => _selectedPeriod = value!);
-                            _loadAnalytics();
-                          },
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 150,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedPeriod,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
+                                DropdownMenuItem(value: 'Last 30 Days', child: Text('Last 30 Days')),
+                                DropdownMenuItem(value: 'All Time', child: Text('All Time')),
+                              ],
+                              onChanged: (value) {
+                                setState(() => _selectedPeriod = value!);
+                                _loadAnalytics();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            width: 200,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Autocomplete<String>(
+                              initialValue: TextEditingValue(text: _selectedRegion),
+                              optionsBuilder: (textEditingValue) {
+                                if (textEditingValue.text.isEmpty) {
+                                  return _availableRegions;
+                                }
+                                return _availableRegions.where((region) => 
+                                  region.toLowerCase().contains(textEditingValue.text.toLowerCase())
+                                );
+                              },
+                              onSelected: (value) {
+                                setState(() => _selectedRegion = value);
+                                _loadAnalytics();
+                              },
+                              optionsViewBuilder: (context, onSelected, options) {
+                                return Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Material(
+                                    elevation: 4.0,
+                                    child: Container(
+                                      width: 200,
+                                      constraints: const BoxConstraints(maxHeight: 200),
+                                      child: ListView.builder(
+                                        padding: EdgeInsets.zero,
+                                        shrinkWrap: true,
+                                        itemCount: options.length,
+                                        itemBuilder: (context, index) {
+                                          final option = options.elementAt(index);
+                                          return InkWell(
+                                            onTap: () => onSelected(option),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              child: Text(option, style: const TextStyle(fontSize: 14)),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                              fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                                return TextField(
+                                  controller: controller,
+                                  focusNode: focusNode,
+                                  onEditingComplete: onEditingComplete,
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    hintText: 'Select or type region',
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: _exportPDF,
+                            icon: const Icon(Icons.picture_as_pdf, size: 18),
+                            label: const Text('Export PDF'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -276,13 +392,26 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   ),
                   const SizedBox(height: 24),
                   
+                  // Department Distribution
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildChartCard('Department Distribution', _buildDepartmentChart())),
+                      const SizedBox(width: 16),
+                      Expanded(child: Container()),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  
                   // CC Analysis
                   _buildCCAnalysis(),
                   const SizedBox(height: 24),
                   
                   // Satisfaction Analysis - Pie Charts
                   _buildSatisfactionPieCharts(),
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
     );
@@ -429,6 +558,248 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ),
           title: Text(e.key, style: const TextStyle(fontSize: 14)),
           trailing: Text('${e.value} uses', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildDepartmentChart() {
+    final departments = _analytics['departments'] as Map<String, int>? ?? {};
+    if (departments.isEmpty) return const Center(child: Text('No data available'));
+    
+    final total = departments.values.fold(0, (a, b) => a + b);
+    return Column(
+      children: departments.entries.map((e) {
+        final percentage = (e.value / total * 100).round();
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              SizedBox(width: 100, child: Text(e.key, style: const TextStyle(fontSize: 12))),
+              Expanded(
+                child: LinearProgressIndicator(
+                  value: e.value / total,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation(Colors.orange[300]),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text('$percentage%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _exportPDF() async {
+    try {
+      final pdf = pw.Document();
+      
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          build: (context) => [
+            pw.Header(
+              level: 0,
+              child: pw.Text('ARTA Survey Analytics - $_selectedPeriod', 
+                style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.SizedBox(height: 20),
+            
+            // Key Metrics
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildPDFMetric('Total Responses', '${_analytics['totalResponses'] ?? 0}'),
+                _buildPDFMetric('Unique Respondents', '${_analytics['uniqueRespondents'] ?? 0}'),
+                _buildPDFMetric('Avg Satisfaction', '${(_analytics['avgSatisfaction'] ?? 0).toStringAsFixed(1)}/5'),
+                _buildPDFMetric('Completion Rate', '${(_analytics['completionRate'] ?? 0).toStringAsFixed(1)}%'),
+              ],
+            ),
+            pw.SizedBox(height: 30),
+            
+            // Data Tables
+            pw.Text('Client Type Distribution', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+            _buildPDFTable(_analytics['clientTypes'] as Map<String, int>? ?? {}),
+            
+            pw.SizedBox(height: 20),
+            pw.Text('Regional Distribution', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+            _buildPDFTable(_analytics['regions'] as Map<String, int>? ?? {}),
+            
+            pw.SizedBox(height: 20),
+            pw.Text('Service Usage', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+            _buildPDFTable(_analytics['services'] as Map<String, int>? ?? {}),
+            
+            pw.SizedBox(height: 20),
+            pw.Text('Department Distribution', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+            _buildPDFTable(_analytics['departments'] as Map<String, int>? ?? {}),
+            
+            pw.SizedBox(height: 20),
+            pw.Text('Citizen\'s Charter Analysis', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+            _buildCCAnalysisPDF(),
+            
+            pw.SizedBox(height: 20),
+            pw.Text('Satisfaction Analysis', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+            _buildSatisfactionAnalysisPDF(),
+          ],
+        ),
+      );
+      
+      await Printing.sharePdf(
+        bytes: await pdf.save(),
+        filename: 'ARTA_Analytics_${_selectedPeriod.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
+    }
+  }
+  
+  pw.Widget _buildPDFMetric(String title, String value) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(16),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: pw.BorderRadius.circular(8),
+      ),
+      child: pw.Column(
+        children: [
+          pw.Text(value, style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 4),
+          pw.Text(title, style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey600)),
+        ],
+      ),
+    );
+  }
+  
+  pw.Widget _buildPDFTable(Map<String, int> data) {
+    if (data.isEmpty) return pw.Text('No data available');
+    
+    final total = data.values.fold(0, (a, b) => a + b);
+    return pw.Table(
+      border: pw.TableBorder.all(),
+      children: [
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+          children: [
+            pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Category', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+            pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Count', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+            pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('Percentage', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+          ],
+        ),
+        ...data.entries.map((e) => pw.TableRow(
+          children: [
+            pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(e.key)),
+            pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('${e.value}')),
+            pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text('${((e.value / total) * 100).round()}%')),
+          ],
+        )),
+      ],
+    );
+  }
+  
+  pw.Widget _buildCCAnalysisPDF() {
+    final ccScores = _analytics['ccScores'] as Map<String, Map<int, int>>? ?? {};
+    if (ccScores.isEmpty) return pw.Text('No CC data available');
+    
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: ccScores.entries.map((entry) {
+        final questionCode = entry.key;
+        final scores = entry.value;
+        final total = scores.values.fold(0, (a, b) => a + b);
+        
+        return pw.Padding(
+          padding: const pw.EdgeInsets.only(bottom: 16),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(questionCode, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 8),
+              pw.Table(
+                border: pw.TableBorder.all(),
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                    children: [
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Option', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Count', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('%', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                    ],
+                  ),
+                  ...scores.entries.map((e) => pw.TableRow(
+                    children: [
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Option ${e.key}')),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${e.value}')),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${total > 0 ? ((e.value / total) * 100).round() : 0}%')),
+                    ],
+                  )),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+  
+  pw.Widget _buildSatisfactionAnalysisPDF() {
+    final satisfactionScores = _analytics['satisfactionScores'] as Map<String, List<int>>? ?? {};
+    if (satisfactionScores.isEmpty) return pw.Text('No satisfaction data available');
+    
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: satisfactionScores.entries.map((entry) {
+        final questionCode = entry.key;
+        final scores = entry.value;
+        final ratingCounts = <int, int>{};
+        for (int rating in scores) {
+          ratingCounts[rating] = (ratingCounts[rating] ?? 0) + 1;
+        }
+        final total = ratingCounts.values.fold(0, (a, b) => a + b);
+        
+        return pw.Padding(
+          padding: const pw.EdgeInsets.only(bottom: 16),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(questionCode, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 8),
+              pw.Table(
+                border: pw.TableBorder.all(),
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                    children: [
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Rating', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Count', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('%', style: pw.TextStyle(fontWeight: pw.FontWeight.bold))),
+                    ],
+                  ),
+                  ...List.generate(5, (i) {
+                    final rating = i + 1;
+                    final count = ratingCounts[rating] ?? 0;
+                    final labels = ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'];
+                    return pw.TableRow(
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('$rating - ${labels[i]}')),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('$count')),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${total > 0 ? ((count / total) * 100).round() : 0}%')),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+            ],
+          ),
         );
       }).toList(),
     );

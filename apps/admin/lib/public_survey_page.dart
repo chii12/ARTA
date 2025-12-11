@@ -23,6 +23,7 @@ class _PublicSurveyPageState extends State<PublicSurveyPage> {
   final _serviceController = TextEditingController();
   final _suggestionsController = TextEditingController();
   final _emailController = TextEditingController();
+  DateTime? _selectedDate;
 
   @override
   void initState() {
@@ -128,7 +129,7 @@ class _PublicSurveyPageState extends State<PublicSurveyPage> {
                     ),
                     const SizedBox(height: 24),
                     const Text(
-                      'This Client Satisfaction Measurement (CSM) tracks the customer experience of government offices. Your feedback on your recently concluded transaction will help this office provide a better service. Personal information shared will be kept confidential and you always have the option to not answer this form.',
+                      'The Anti-Red Tape Authority (ARTA) is a government agency in the Philippines established to streamline public service processes and eliminate bureaucratic inefficiencies. Its main goal is to ensure faster, more transparent, and citizen-friendly government services by implementing the provisions of the Anti-Red Tape Act (RA 11032). ARTA monitors compliance, addresses complaints, and promotes reforms to reduce delays and improve government accountability.',
                       style: TextStyle(fontSize: 12),
                     ),
                     const SizedBox(height: 24),
@@ -197,13 +198,12 @@ class _PublicSurveyPageState extends State<PublicSurveyPage> {
   Widget _buildLandingPage() {
     return Row(
       children: [
-        Expanded(
-          flex: 1,
-          child: Container(
-            color: Colors.white,
-            padding: const EdgeInsets.all(48),
+        Container(
+          width: 550,
+          color: Colors.white,
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -219,18 +219,90 @@ class _PublicSurveyPageState extends State<PublicSurveyPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 24),
                 const Text(
-                  'AGREEMENT',
+                  'TERMS AND CONDITIONS',
                   style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 200),
+                const SizedBox(height: 16),
+                const Text(
+                  'By continuing to access and accomplish this Customer Satisfaction Survey, you hereby acknowledge and agree to the following terms and conditions:',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Purpose of Data Collection',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'I understand that the information I provide shall be utilized exclusively for the evaluation, monitoring, and continuous improvement of the services rendered by the City Government of Valenzuela. All collected data will support the City\'s efforts to enhance service quality and uphold ARTA-compliant standards.',
+                  style: TextStyle(fontSize: 15),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Data Privacy and Confidentiality',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'I acknowledge that the City Government of Valenzuela is fully committed to protecting my personal information in compliance with the Data Privacy Act of 2012 and its implementing rules and regulations. All personal data collected through this survey will be treated with strict confidentiality and will not be disclosed to unauthorized individuals or entities.',
+                  style: TextStyle(fontSize: 15),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Rights of the Data Subject',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'I understand that, as a data subject, I am entitled to the following rights under the Data Privacy Act: The right to be informed regarding the collection, processing, and purpose of my personal data; The right to access my personal information and request corrections for any inaccuracies; The right to object to the processing of my personal data, subject to applicable laws and regulations; The right to lodge a complaint with the National Privacy Commission for any concerns relating to the handling of my personal data.',
+                  style: TextStyle(fontSize: 15),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Voluntary Participation',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'I acknowledge that my participation in this survey is entirely voluntary and that I may discontinue or decline to proceed at any time without penalty.',
+                  style: TextStyle(fontSize: 15),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.blue),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.blue[50],
+                  ),
+                  child: Row(
+                    children: [
+                      Checkbox(
+                        value: _answers['consent_agreed'] == true,
+                        onChanged: (value) => setState(() => _answers['consent_agreed'] = value),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'I confirm that I have carefully read, understood, and voluntarily consent to the provisions stated above.',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: () => setState(() => _showLandingPage = false),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                    onPressed: _answers['consent_agreed'] == true
+                        ? () => setState(() => _showLandingPage = false)
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _answers['consent_agreed'] == true ? Colors.blue : Colors.grey,
+                    ),
                     child: const Text('Take Survey', style: TextStyle(fontSize: 16)),
                   ),
                 ),
@@ -239,24 +311,23 @@ class _PublicSurveyPageState extends State<PublicSurveyPage> {
           ),
         ),
         Expanded(
-          flex: 1,
           child: Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/background.jpg'),
+                image: AssetImage('assets/background.jpeg'),
                 fit: BoxFit.cover,
               ),
             ),
             child: Container(
               color: Colors.black.withOpacity(0.5),
-              padding: const EdgeInsets.all(48),
+              padding: const EdgeInsets.all(64),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   RichText(
                     text: TextSpan(
-                      style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold, color: Colors.white),
                       children: [
                         const TextSpan(text: 'Anti'),
                         TextSpan(text: 'Red Tape', style: TextStyle(color: Colors.red[700])),
@@ -264,15 +335,15 @@ class _PublicSurveyPageState extends State<PublicSurveyPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 32),
                   const Text(
                     'This Client Satisfaction Measurement (CSM) tracks the customer experience of government offices. Your feedback on your recently concluded transaction will help this office provide a better service. Personal information shared will be kept confidential and you always have the option to not answer this form.',
-                    style: TextStyle(fontSize: 14, color: Colors.white),
+                    style: TextStyle(fontSize: 16, color: Colors.white),
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 56),
                   RichText(
                     text: TextSpan(
-                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
                       children: [
                         const TextSpan(text: 'Purpose of Anti'),
                         TextSpan(text: 'Red Tape', style: TextStyle(color: Colors.red[700])),
@@ -280,10 +351,10 @@ class _PublicSurveyPageState extends State<PublicSurveyPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 32),
                   const Text(
-                    'The Anti-Red Tape Authority (ARTA) aims to improve the efficiency of government service delivery by reducing bureaucratic red tape and ensuring that citizens receive quality and timely services from government agencies.',
-                    style: TextStyle(fontSize: 14, color: Colors.white),
+                    'The purpose of the Anti-Red Tape Authority (ARTA) is to streamline government processes, reduce bureaucratic delays, and ensure efficient, transparent, and citizen-friendly public services. It monitors compliance with the Anti-Red Tape Act (RA 11032), addresses complaints, and promotes reforms to improve accountability and service delivery across government agencies.',
+                    style: TextStyle(fontSize: 16, color: Colors.white),
                   ),
                 ],
               ),
@@ -391,13 +462,41 @@ class _PublicSurveyPageState extends State<PublicSurveyPage> {
                 children: [
                   const Text('Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      border: Border.all(color: Colors.blue[200]!),
+                  InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (date != null) {
+                        setState(() => _selectedDate = date);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      height: 40,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _selectedDate != null 
+                                ? '${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}'
+                                : 'Select Date',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _selectedDate != null ? Colors.black : Colors.grey[600],
+                            ),
+                          ),
+                          Icon(Icons.calendar_today, size: 16, color: Colors.blue[600]),
+                        ],
+                      ),
                     ),
-                    height: 40,
                   ),
                 ],
               ),

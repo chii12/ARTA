@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'survey_form.dart';
 
-class LandingPageDesktop extends StatelessWidget {
+class LandingPageDesktop extends StatefulWidget {
   const LandingPageDesktop({super.key});
+
+  @override
+  State<LandingPageDesktop> createState() => _LandingPageDesktopState();
+}
+
+class _LandingPageDesktopState extends State<LandingPageDesktop> {
+  bool _agreedToTerms = false;
 
   @override
   Widget build(BuildContext context) {
@@ -79,23 +86,124 @@ class LandingPageDesktop extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
-                        'AGREEMENT',
+                        'TERMS AND CONDITIONS',
                         style: GoogleFonts.poppins(
-                          fontSize: 36,
+                          fontSize: 24,
                           fontWeight: FontWeight.w700,
                           color: Colors.black,
-                          letterSpacing: 2,
+                          letterSpacing: 1,
                         ),
                       ),
-                      const SizedBox(height: 40),
-                      // Empty space for agreement content
+                      const SizedBox(height: 20),
+                      Text(
+                        'By continuing to access and accomplish this Customer Satisfaction Survey, you hereby acknowledge and agree to the following terms and conditions:',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.black87,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '1. Purpose of Data Collection',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'I understand that the information I provide shall be utilized exclusively for the evaluation, monitoring, and continuous improvement of the services rendered by the City Government of Valenzuela. All collected data will support the City\'s efforts to enhance service quality and uphold ARTA-compliant standards.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.black87,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '2. Data Privacy and Confidentiality',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'I acknowledge that the City Government of Valenzuela is fully committed to protecting my personal information in compliance with the Data Privacy Act of 2012 and its implementing rules and regulations. All personal data collected through this survey will be treated with strict confidentiality and will not be disclosed to unauthorized individuals or entities.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.black87,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '3. Rights of the Data Subject',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'I understand that, as a data subject, I am entitled to the following rights under the Data Privacy Act:\n• The right to be informed regarding the collection, processing, and purpose of my personal data;\n• The right to access my personal information and request corrections for any inaccuracies;\n• The right to object to the processing of my personal data, subject to applicable laws and regulations;\n• The right to lodge a complaint with the National Privacy Commission for any concerns relating to the handling of my personal data.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.black87,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '4. Voluntary Participation',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'I acknowledge that my participation in this survey is entirely voluntary and that I may discontinue or decline to proceed at any time without penalty.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.black87,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       Container(
-                        height: 280,
-                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.blue.shade50,
+                          border: Border.all(color: Colors.blue.shade200),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          children: [
+                            Checkbox(
+                              value: _agreedToTerms,
+                              onChanged: (value) {
+                                setState(() {
+                                  _agreedToTerms = value ?? false;
+                                });
+                              },
+                            ),
+                            Expanded(
+                              child: Text(
+                                'I confirm that I have carefully read, understood, and voluntarily consent to the provisions stated above.',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -106,9 +214,9 @@ class LandingPageDesktop extends StatelessWidget {
                             child: SizedBox(
                               height: 50,
                               child: OutlinedButton.icon(
-                                onPressed: () {
+                                onPressed: _agreedToTerms ? () {
                                   Navigator.of(context).pushNamed('/qr');
-                                },
+                                } : null,
                                 icon: const Icon(Icons.qr_code_scanner, size: 20),
                                 label: Text(
                                   'Scan QR',
@@ -118,8 +226,8 @@ class LandingPageDesktop extends StatelessWidget {
                                   ),
                                 ),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF0A84FF),
-                                  side: const BorderSide(color: Color(0xFF0A84FF)),
+                                  foregroundColor: _agreedToTerms ? const Color(0xFF0A84FF) : Colors.grey,
+                                  side: BorderSide(color: _agreedToTerms ? const Color(0xFF0A84FF) : Colors.grey),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6),
                                   ),
@@ -132,15 +240,15 @@ class LandingPageDesktop extends StatelessWidget {
                             child: SizedBox(
                               height: 50,
                               child: ElevatedButton(
-                                onPressed: () {
+                                onPressed: _agreedToTerms ? () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => const SurveyFormPage(),
                                     ),
                                   );
-                                },
+                                } : null,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0A84FF),
+                                  backgroundColor: _agreedToTerms ? const Color(0xFF0A84FF) : Colors.grey,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6),
                                   ),
@@ -252,7 +360,7 @@ class LandingPageDesktop extends StatelessWidget {
                       
                       // First description
                       Text(
-                        'Lorem ipsum dolor sit amet consectetur adipiscing elit. Ex sapien vitae pellentesque sem placerat in id. Pretium tellus duis convallis tempus leo eu aenean. Ullamcorper integer facilisis vitae cras. Risus non pellentesque lorem duis viverra sed nec. Eget tincidunt eget pellentesque lectus pede. Libero mollis leo mauris tellus imperdiet lacus. Quis amet libero cras etiam amet bibendum. Vitae maecenas faucibus dis vitae maecenas penatibus non. Mauris congue ornare egestas faucibus elit. Vulputate lorem eu ex vulputate. Felis mauris lacus id consequat non porta sapien elementum. Nullam euismod vel duis massa varius vitae.',
+                        'The Anti-Red Tape Authority (ARTA) is a government agency in the Philippines established to streamline public service processes and eliminate bureaucratic inefficiencies. Its main goal is to ensure faster, more transparent, and citizen-friendly government services by implementing the provisions of the Anti-Red Tape Act (RA 11032). ARTA monitors compliance, addresses complaints, and promotes reforms to reduce delays and improve government accountability.',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           color: Colors.white,
@@ -310,7 +418,7 @@ class LandingPageDesktop extends StatelessWidget {
                       
                       // Second description
                       Text(
-                        'Lorem ipsum dolor sit amet consectetur adipiscing elit. Ex sapien vitae pellentesque sem placerat in id. Pretium tellus duis convallis tempus leo eu aenean. Ullamcorper integer facilisis vitae cras. Risus non pellentesque lorem duis viverra sed nec. Eget tincidunt eget pellentesque lectus pede. Libero mollis leo mauris tellus imperdiet lacus. Quis amet libero cras etiam amet bibendum. Vitae maecenas faucibus dis vitae maecenas penatibus non. Mauris congue ornare egestas faucibus elit. Vulputate lorem eu ex vulputate. Felis mauris lacus id consequat non porta sapien elementum. Nullam euismod vel duis massa varius vitae.',
+                        'The purpose of the Anti-Red Tape Authority (ARTA) is to streamline government processes, reduce bureaucratic delays, and ensure efficient, transparent, and citizen-friendly public services. It monitors compliance with the Anti-Red Tape Act (RA 11032), addresses complaints, and promotes reforms to improve accountability and service delivery across government agencies.',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           color: Colors.white,

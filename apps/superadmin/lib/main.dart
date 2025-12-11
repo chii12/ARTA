@@ -10,6 +10,7 @@ import 'user_management.dart';
 import 'analytics_page.dart';
 import 'responses_page.dart';
 import 'survey_page.dart';
+import 'reset_password_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +59,9 @@ class MyApp extends StatelessWidget {
           break;
         case '/admin/survey':
           page = AuthGuard(child: const SurveyPage());
+          break;
+        case '/reset-password':
+          page = const ResetPasswordPage();
           break;
         default:
           page = const LoginPage();

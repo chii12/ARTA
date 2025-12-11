@@ -14,6 +14,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   Map<String, dynamic> _analytics = {};
   bool _loading = true;
   String _selectedPeriod = 'Last 30 Days';
+  String _selectedRegion = 'All Regions';
+  List<String> _availableRegions = ['All Regions'];
 
   @override
   void initState() {
@@ -50,14 +52,25 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     final thirtyDaysAgo = now.subtract(const Duration(days: 30));
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     
-    // Filter by period
+    // Get available regions
+    final availableRegions = responses.map((r) => r['respondents']?['region_of_residence'] ?? 'Unknown').toSet().toList();
+    availableRegions.sort();
+    _availableRegions = ['All Regions', ...availableRegions];
+    
+    // Filter by period and region
     final filteredResponses = responses.where((r) {
       final date = DateTime.parse(r['date_submitted']);
+      final region = r['respondents']?['region_of_residence'] ?? 'Unknown';
+      
+      bool periodMatch = true;
       switch (_selectedPeriod) {
-        case 'Last 7 Days': return date.isAfter(sevenDaysAgo);
-        case 'Last 30 Days': return date.isAfter(thirtyDaysAgo);
-        default: return true;
+        case 'Last 7 Days': periodMatch = date.isAfter(sevenDaysAgo); break;
+        case 'Last 30 Days': periodMatch = date.isAfter(thirtyDaysAgo); break;
       }
+      
+      bool regionMatch = _selectedRegion == 'All Regions' || region == _selectedRegion;
+      
+      return periodMatch && regionMatch;
     }).toList();
     
     // Basic metrics
@@ -211,26 +224,107 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Survey Analytics', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: const Color.fromARGB(255, 255, 255, 255),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: DropdownButton<String>(
-                          value: _selectedPeriod,
-                          underline: const SizedBox(),
-                          items: const [
-                            DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
-                            DropdownMenuItem(value: 'Last 30 Days', child: Text('Last 30 Days')),
-                            DropdownMenuItem(value: 'All Time', child: Text('All Time')),
-                          ],
-                          onChanged: (value) {
-                            setState(() => _selectedPeriod = value!);
-                            _loadAnalytics();
-                          },
-                        ),
+                      const Text('Survey Analytics (Super Admin)', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+                      Row(
+                        children: [
+                          Container(
+                            width: 110,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedPeriod,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 'Last 7 Days', child: Text('7 Days', style: TextStyle(fontSize: 12))),
+                                DropdownMenuItem(value: 'Last 30 Days', child: Text('30 Days', style: TextStyle(fontSize: 12))),
+                                DropdownMenuItem(value: 'All Time', child: Text('All Time', style: TextStyle(fontSize: 12))),
+                              ],
+                              onChanged: (value) {
+                                setState(() => _selectedPeriod = value!);
+                                _loadAnalytics();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 140,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Autocomplete<String>(
+                              initialValue: TextEditingValue(text: _selectedRegion),
+                              optionsBuilder: (textEditingValue) {
+                                if (textEditingValue.text.isEmpty) {
+                                  return _availableRegions;
+                                }
+                                return _availableRegions.where((region) => 
+                                  region.toLowerCase().contains(textEditingValue.text.toLowerCase())
+                                );
+                              },
+                              onSelected: (value) {
+                                setState(() => _selectedRegion = value);
+                                _loadAnalytics();
+                              },
+                              optionsViewBuilder: (context, onSelected, options) {
+                                return Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Material(
+                                    elevation: 4.0,
+                                    child: Container(
+                                      width: 200,
+                                      constraints: const BoxConstraints(maxHeight: 200),
+                                      child: ListView.builder(
+                                        padding: EdgeInsets.zero,
+                                        shrinkWrap: true,
+                                        itemCount: options.length,
+                                        itemBuilder: (context, index) {
+                                          final option = options.elementAt(index);
+                                          return InkWell(
+                                            onTap: () => onSelected(option),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              child: Text(option, style: const TextStyle(fontSize: 14)),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                              fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                                return TextField(
+                                  controller: controller,
+                                  focusNode: focusNode,
+                                  onEditingComplete: onEditingComplete,
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    hintText: 'Select or type region',
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: _exportPDF,
+                            icon: const Icon(Icons.picture_as_pdf, size: 18),
+                            label: const Text('Export PDF'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -725,6 +819,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _exportPDF() async {
+    // Simple PDF export placeholder
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('PDF export feature coming soon')),
     );
   }
 }

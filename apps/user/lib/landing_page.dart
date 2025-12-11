@@ -133,7 +133,7 @@ class _LandingPageState extends State<LandingPage> {
                                   ),
                                   children: [
                                     const TextSpan(
-                                      text: 'Lorem ipsum dolor sit amet consectetur adipiscing elit. Ex sapien vitae pellentesque sem placerat in id. Pretium tellus duis convallis tempus leo eu aenean. ',
+                                      text: 'The Anti-Red Tape Authority (ARTA) is a government agency in the Philippines established to streamline public service processes and eliminate bureaucratic inefficiencies. Its main goal is to ensure faster, more transparent, and citizen-friendly government services by implementing the provisions of the Anti-Red Tape Act (RA 11032). ARTA monitors compliance, addresses complaints, and promotes reforms to reduce delays and improve government accountability.',
                                     ),
                                     WidgetSpan(
                                       child: GestureDetector(
@@ -157,7 +157,7 @@ class _LandingPageState extends State<LandingPage> {
                                 children: [
                                   // Keep first paragraph visible
                                   Text(
-                                    'Lorem ipsum dolor sit amet consectetur adipiscing elit. Ex sapien vitae pellentesque sem placerat in id. Pretium tellus duis convallis tempus leo eu aenean.',
+                                    'The Anti-Red Tape Authority (ARTA) is a government agency in the Philippines established to streamline public service processes and eliminate bureaucratic inefficiencies. Its main goal is to ensure faster, more transparent, and citizen-friendly government services by implementing the provisions of the Anti-Red Tape Act (RA 11032). ARTA monitors compliance, addresses complaints, and promotes reforms to reduce delays and improve government accountability.',
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.poppins(
                                       color: Colors.white,
@@ -227,7 +227,7 @@ class _LandingPageState extends State<LandingPage> {
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    'Lorem ipsum dolor sit amet consectetur adipiscing elit. Ex sapien vitae pellentesque sem placerat in id. Pretium tellus duis convallis tempus leo eu aenean.',
+                                    'The purpose of the Anti-Red Tape Authority (ARTA) is to streamline government processes, reduce bureaucratic delays, and ensure efficient, transparent, and citizen-friendly public services. It monitors compliance with the Anti-Red Tape Act (RA 11032), addresses complaints, and promotes reforms to improve accountability and service delivery across government agencies.',
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.poppins(
                                       color: Colors.white,
